@@ -1,5 +1,5 @@
 project:
-  name: quickstart-uipath-orchestrator
+  name: cfn-ps-uipath-orchestrator
   parameters:
     QSS3KeyPrefix: "quickstart-uipath-orchestrator/"
     QSS3BucketName: "$[taskcat_autobucket]"
