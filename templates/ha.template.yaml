@@ -1,0 +1,522 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This template creates a cluster to provide high availability. (qs-1r2g4124c)
+Parameters:
+  VPCID:
+    Type: 'AWS::EC2::VPC::Id'
+  VPCCIDR:
+    AllowedPattern: >-
+      ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Default: 10.0.0.0/16
+    Description: CIDR block for the VPC
+    Type: String
+  SubnetIDs:
+    Description: Comma separated Subnet IDs where HAA VMs need to be launched
+    Type: List<AWS::EC2::Subnet::Id>
+  KeyPairName:
+    Description: EC2 Instance Key pair name
+    Type: String
+  HAAUser:
+    Description: High Availability Add-on username (email)
+    Type: String
+  HAAPassword:
+    Description: High Availability Add-on password
+    Type: String
+    NoEcho: 'true'
+  HAALicense:
+    Description: High Availability Add-on license key
+    Type: String
+  FindAMIFunctionArn:
+    Description: ARN for Lambda function used to find AMI by name
+    Type: String
+  QSS3BucketName:
+    Type: String
+    Description: Name of the S3 bucket for your copy of the Quick Start assets.
+      Keep the default name unless you are customizing the template.
+      Changing the name updates code references to point to a new Quick
+      Start location. This name can include numbers, lowercase letters,
+      uppercase letters, and hyphens, but do not start or end with a hyphen (-).
+      See https://aws-quickstart.github.io/option1.html.
+Conditions:
+  TrialHAA: !Equals
+    - !Ref HAALicense
+    - ''
+  IsMarketplaceDeployment: !Equals
+    - !Ref QSS3BucketName
+    - !Join
+      - "-"
+      - - "uipath-marketplace"
+        - "us-east-1"
+Mappings: 
+  RegionMap: 
+    ap-northeast-1:
+      x8664: "ami-xxxxxxxxxxxx"
+    ap-northeast-2:
+      x8664: "ami-xxxxxxxxxxxx"
+    ap-northeast-3: 
+      x8664: "ami-xxxxxxxxxxxx"
+    ap-south-1:
+      x8664: "ami-xxxxxxxxxxxx"
+    ap-southeast-1:
+      x8664: "ami-xxxxxxxxxxxx"
+    ap-southeast-2:
+      x8664: "ami-xxxxxxxxxxxx"
+    ca-central-1: 
+      x8664: "ami-xxxxxxxxxxxx"
+    eu-central-1: 
+      x8664: "ami-xxxxxxxxxxxx"
+    eu-north-1:
+      x8664: "ami-xxxxxxxxxxxx"
+    eu-west-1:
+      x8664: "ami-xxxxxxxxxxxx"
+    eu-west-2: 
+      x8664: "ami-xxxxxxxxxxxx"
+    eu-west-3:
+      x8664: "ami-xxxxxxxxxxxx"
+    sa-east-1:
+      x8664: "ami-xxxxxxxxxxxx"
+    us-east-1:
+      x8664: "ami-YYYYYYYYYYYYYYYYYY"
+    us-east-2:
+      x8664: "ami-xxxxxxxxxxxx"
+    us-west-1:
+      x8664: "ami-xxxxxxxxxxxx"
+    us-west-2: 
+      x8664: "ami-xxxxxxxxxxxx"
+Resources:
+  HaaSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security Group allowing access to High-Availability Add-On application
+      GroupName: !Join
+        - '-'
+        - - !Ref 'AWS::StackName'
+          - UiPathHaaSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref 'AWS::StackName'
+              - UiPathHaaSecurityGroup
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: icmp
+          FromPort: 8
+          ToPort: -1
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 1968
+          ToPort: 1968
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 3333
+          ToPort: 3344
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 36379
+          ToPort: 36380
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 8001
+          ToPort: 8002
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 8004
+          ToPort: 8004
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 8006
+          ToPort: 8006
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 8443
+          ToPort: 8444
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 9080
+          ToPort: 9080
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 9081
+          ToPort: 9081
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 8070
+          ToPort: 8071
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 9443
+          ToPort: 9443
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 10000
+          ToPort: 19999
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 20000
+          ToPort: 29999
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 53
+          ToPort: 53
+          CidrIp: !Ref VPCCIDR
+        - IpProtocol: tcp
+          FromPort: 5353
+          ToPort: 5353
+          CidrIp: !Ref VPCCIDR
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: icmp
+          FromPort: 8
+          ToPort: -1
+          CidrIp: !Ref VPCCIDR
+  HAInstanceAMI:
+    Type: 'Custom::HAInstanceAMI'
+    Properties:
+      ServiceToken: !Ref FindAMIFunctionArn
+      RegionName: !Ref 'AWS::Region'
+      ImageName: RHEL-7.9*_HVM-20*
+      Architecture: x86_64
+      VirtualizationType: hvm
+      Owners: '309956199498'
+  HAMain:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: !GetAtt HAInstanceAMI.RootDeviceName
+          Ebs:
+            Encrypted: true
+      ImageId: !If 
+        - IsMarketplaceDeployment
+        - !FindInMap
+          - RegionMap
+          - !Ref 'AWS::Region'
+          - x8664
+        - !Ref HAInstanceAMI
+      InstanceType: m4.xlarge
+      KeyName: !Ref KeyPairName
+      SecurityGroupIds:
+        - !Ref HaaSecurityGroup
+      SubnetId: !Select [ '0', !Ref SubnetIDs ]
+      UserData: !If
+        - IsMarketplaceDeployment
+        - !Base64
+            'Fn::Join':
+              - |+
+
+              - - '#!/bin/bash'
+                - cd /home/ec2-user/temp
+                - chmod +x get-haa.sh
+                - !Join
+                  - ' '
+                  - - sh get-haa.sh
+                    - '-u'
+                    - !Ref HAAUser
+                    - '-p'
+                    - !Ref HAAPassword
+                    - !If
+                      - TrialHAA
+                      - ''
+                      - !Join
+                        - ''
+                        - - '-l '
+                          - !Ref HAALicense
+                    - '--accept-license-agreement'
+                    - '--verbose'
+        - !Base64
+            'Fn::Join':
+              - |+
+
+              - - '#!/bin/bash'
+                - yum update -y
+                - yum install -y wget
+                - 'wget https://download.uipath.com/haa/2022.4.2/Rhel7/get-haa.sh'
+                - chmod +x get-haa.sh
+                - !Join
+                  - ' '
+                  - - sh get-haa.sh
+                    - '-u'
+                    - !Ref HAAUser
+                    - '-p'
+                    - !Ref HAAPassword
+                    - !If
+                      - TrialHAA
+                      - ''
+                      - !Join
+                        - ''
+                        - - '-l '
+                          - !Ref HAALicense
+                    - '--accept-license-agreement'
+                    - '--verbose'
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref 'AWS::StackName'
+              - HA-Main
+  HASecondary1:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: !GetAtt HAInstanceAMI.RootDeviceName
+          Ebs:
+            Encrypted: true
+      ImageId: !If 
+        - IsMarketplaceDeployment
+        - !FindInMap
+          - RegionMap
+          - !Ref 'AWS::Region'
+          - x8664
+        - !Ref HAInstanceAMI
+      InstanceType: m4.xlarge
+      KeyName: !Ref KeyPairName
+      SecurityGroupIds:
+        - !Ref HaaSecurityGroup
+      SubnetId: !Select [ '1', !Ref SubnetIDs ]
+      UserData: !If
+        - IsMarketplaceDeployment
+        - !Base64
+            'Fn::Join':
+              - |+
+
+              - - '#!/bin/bash'
+                - cd /home/ec2-user/temp
+                - chmod +x get-haa.sh
+                - tries=0
+                - maxTries=12
+                - !Join
+                  - ''
+                  - - 'until curl -u '
+                    - !Ref HAAUser
+                    - ':'
+                    - !Ref HAAPassword
+                    - ' -k --silent https://'
+                    - !GetAtt
+                      - HAMain
+                      - PrivateIp
+                    - ':9443/v1/bootstrap | tr -d ''[:space:]'' | grep "\"state\":\"completed\""; do'
+                - 'tries=$((tries+1))'
+                - echo "[$tries/$maxTries] Trying to reach the remote API..."
+                - 'if [[ "$tries" == "$maxTries" ]]'
+                - then
+                - 'echo "Timed out while trying to reach cluster API" && exit 1'
+                - fi
+                - sleep 10
+                - done
+                - !Join
+                  - ' '
+                  - - sh get-haa.sh
+                    - '-u'
+                    - !Ref HAAUser
+                    - '-p'
+                    - !Ref HAAPassword
+                    - '-j '
+                    - !GetAtt
+                      - HAMain
+                      - PrivateIp
+                    - '--accept-license-agreement'
+                    - '--verbose'
+        - !Base64
+            'Fn::Join':
+              - |+
+
+              - - '#!/bin/bash'
+                - yum update -y
+                - yum install -y wget
+                - 'wget https://download.uipath.com/haa/2022.4.2/Rhel7/get-haa.sh'
+                - chmod +x get-haa.sh
+                - tries=0
+                - maxTries=12
+                - !Join
+                  - ''
+                  - - 'until curl -u '
+                    - !Ref HAAUser
+                    - ':'
+                    - !Ref HAAPassword
+                    - ' -k --silent https://'
+                    - !GetAtt
+                      - HAMain
+                      - PrivateIp
+                    - ':9443/v1/bootstrap | tr -d ''[:space:]'' | grep "\"state\":\"completed\""; do'
+                - 'tries=$((tries+1))'
+                - echo "[$tries/$maxTries] Trying to reach the remote API..."
+                - 'if [[ "$tries" == "$maxTries" ]]'
+                - then
+                - 'echo "Timed out while trying to reach cluster API" && exit 1'
+                - fi
+                - sleep 10
+                - done
+                - !Join
+                  - ' '
+                  - - sh get-haa.sh
+                    - '-u'
+                    - !Ref HAAUser
+                    - '-p'
+                    - !Ref HAAPassword
+                    - '-j '
+                    - !GetAtt
+                      - HAMain
+                      - PrivateIp
+                    - '--accept-license-agreement'
+                    - '--verbose'
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref 'AWS::StackName'
+              - HA-Secondary-1
+  HASecondary2:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: !GetAtt HAInstanceAMI.RootDeviceName
+          Ebs:
+            Encrypted: true
+      ImageId: !If 
+        - IsMarketplaceDeployment
+        - !FindInMap
+          - RegionMap
+          - !Ref 'AWS::Region'
+          - x8664
+        - !Ref HAInstanceAMI
+      InstanceType: m4.xlarge
+      KeyName: !Ref KeyPairName
+      SecurityGroupIds:
+        - !Ref HaaSecurityGroup
+      SubnetId: !Select [ '1',  !Ref SubnetIDs ]
+      UserData: !If
+        - IsMarketplaceDeployment
+        - !Base64
+            'Fn::Join':
+              - |+
+
+              - - '#!/bin/bash'
+                - cd /home/ec2-user/temp
+                - chmod +x get-haa.sh
+                - tries=0
+                - maxTries=12
+                - !Join
+                  - ''
+                  - - 'until curl -u '
+                    - !Ref HAAUser
+                    - ':'
+                    - !Ref HAAPassword
+                    - ' -k --silent https://'
+                    - !GetAtt
+                      - HAMain
+                      - PrivateIp
+                    - ':9443/v1/bootstrap | tr -d ''[:space:]'' | grep "\"state\":\"completed\""; do'
+                - 'tries=$((tries+1))'
+                - echo "[$tries/$maxTries] Trying to reach the remote API..."
+                - 'if [[ "$tries" == "$maxTries" ]]'
+                - then
+                - 'echo "Timed out while trying to reach cluster API" && exit 1'
+                - fi
+                - sleep 10
+                - done
+                - !Join
+                  - ' '
+                  - - sh get-haa.sh
+                    - '-u'
+                    - !Ref HAAUser
+                    - '-p'
+                    - !Ref HAAPassword
+                    - '-j '
+                    - !GetAtt
+                      - HAMain
+                      - PrivateIp
+                    - '--accept-license-agreement'
+                    - '--verbose'
+        - !Base64
+            'Fn::Join':
+              - |+
+
+              - - '#!/bin/bash'
+                - yum update -y
+                - yum install -y wget
+                - 'wget https://download.uipath.com/haa/2022.4.2/Rhel7/get-haa.sh'
+                - chmod +x get-haa.sh
+                - tries=0
+                - maxTries=12
+                - !Join
+                  - ''
+                  - - 'until curl -u '
+                    - !Ref HAAUser
+                    - ':'
+                    - !Ref HAAPassword
+                    - ' -k --silent https://'
+                    - !GetAtt
+                      - HAMain
+                      - PrivateIp
+                    - ':9443/v1/bootstrap | tr -d ''[:space:]'' | grep "\"state\":\"completed\""; do'
+                - 'tries=$((tries+1))'
+                - echo "[$tries/$maxTries] Trying to reach the remote API..."
+                - 'if [[ "$tries" == "$maxTries" ]]'
+                - then
+                - 'echo "Timed out while trying to reach cluster API" && exit 1'
+                - fi
+                - sleep 10
+                - done
+                - !Join
+                  - ' '
+                  - - sh get-haa.sh
+                    - '-u'
+                    - !Ref HAAUser
+                    - '-p'
+                    - !Ref HAAPassword
+                    - '-j '
+                    - !GetAtt
+                      - HAMain
+                      - PrivateIp
+                    - '--accept-license-agreement'
+                    - '--verbose'
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref 'AWS::StackName'
+              - HA-Secondary-2
+Outputs:
+  HAMainID:
+    Value: !Ref HAMain
+    Description: ID of HA Main VM in Private Subnet 1
+  HAMainPrivateIP:
+    Value: !GetAtt
+      - HAMain
+      - PrivateIp
+    Description: Private IP of HA Main VM in Private Subnet 1
+  HASecondary1ID:
+    Value: !Ref HASecondary1
+    Description: ID of HA Secondary 1 VM in Private Subnet 1
+  HASecondary1PrivateIP:
+    Value: !GetAtt
+      - HASecondary1
+      - PrivateIp
+    Description: Private IP of HA Secondary 1 VM in Private Subnet 1
+  HASecondary2ID:
+    Value: !Ref HASecondary2
+    Description: ID of HA Secondary 2 VM in Private Subnet 1
+  HASecondary2PrivateIP:
+    Value: !GetAtt
+      - HASecondary2
+      - PrivateIp
+    Description: Private IP of HA Secondary 2 VM in Private Subnet 1
